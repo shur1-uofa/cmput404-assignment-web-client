@@ -96,6 +96,8 @@ class HTTPClient(object):
             "Accept" : "*/*",
             "Connection" : "close",
         })
+        if args is not None:
+            req.path = req.path + '?' + self.encodeArgs(args)
         self.sendall(req.toPayload())
 
         #log.write("Sending\n")
