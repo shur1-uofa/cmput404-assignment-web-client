@@ -23,6 +23,13 @@ import socket
 import re
 # you may use urllib to encode data appropriately
 import urllib.parse
+import time 
+
+# TODO: DEBUG REMOVE
+log = open('log.txt', 'w')
+
+shouldPercentEncode = [ ':', '/', '?', '#', '[', ']', '@', '!', '$', '&', "'", '(', ')', '*', '+', ',', ';', '=', '%', ' ']
+
 
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
@@ -41,16 +48,28 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+        protocol, _, data = data.partition(' ')
+        code, _, data = data.partition(' ')
+        return int(code)
 
     def get_headers(self,data):
+        headers = []
+        _, _, data = data.partition('\n')
+        header = "a"
+        while header != "":
+            header, _, data = data.partition('\r\n')
+            headers.append(header)
         return None
 
     def get_body(self, data):
-        return None
+        left = "a"
+        while left.strip() != "":
+            left, _, data = data.partition('\n')
+        return data
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
+        self.socket.shutdown(socket.SHUT_WR)
         
     def close(self):
         self.socket.close()
@@ -61,6 +80,7 @@ class HTTPClient(object):
         done = False
         while not done:
             part = sock.recv(1024)
+            log.write("READING: " + str(part) + "\n")
             if (part):
                 buffer.extend(part)
             else:
@@ -68,14 +88,111 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
-        code = 500
-        body = ""
-        return HTTPResponse(code, body)
+
+        self.connectToServer(url)
+
+        # Send Request
+        req = HTTPRequest("GET", url, {
+            "Host" : self.getHost(url),
+            "Accept" : "*/*",
+            "Connection" : "close",
+        })
+        self.sendall(req.toPayload())
+
+        log.write("Sending\n")
+        log.write(req.toPayload())
+        log.write("=====\n\n")
+
+        resp = self.getHTTPResponse()
+        self.close()
+
+        return resp
 
     def POST(self, url, args=None):
-        code = 500
-        body = ""
+
+        self.connectToServer(url)
+        log.write("Args: " + str(args) + "\n")
+
+        # Send Request
+        req = HTTPRequest("POST", url, {
+            "Host" : self.getHost(url),
+            "Accept" : "*/*",
+            "Connection" : "close",
+        })
+        body = self.encodeArgs(args)
+        if body != "":
+            req.headers["Content-Type"] = "application/x-www-form-urlencoded"
+            req.headers["Content-Length"] = len(bytearray(body, 'utf-8'))
+            req.body = body
+        else:
+            req.headers["Content-Length"] = str(0)
+
+        self.sendall(req.toPayload())
+
+        log.write("Sending\n")
+        log.write(req.toPayload())
+        log.write("=====\n\n")
+
+        resp = self.getHTTPResponse()
+        self.close()
+
+        return resp
+    
+    def getHTTPResponse(self):
+        data = self.recvall(self.socket)
+
+        if data.strip() == "":
+            return None
+        code = self.get_code(data)
+        body = self.get_body(data)
+
+        log.write("LOG: data\n" + data + "\n")
+        log.write("LOG: Obtained resp code " + str(code) + "\n")
+        log.write("LOG: Obtained resp body\n")
+        log.write(body)
+        log.write('\n')
+        log.write("\n----------------------------------\n\n")
+
         return HTTPResponse(code, body)
+    
+    def encodeArgs(self, args = None):
+        res = ""
+        if args == None:
+            return res
+        for key, value in args.items():
+            res += f"&{self.percentEncode(key)}={self.percentEncode(value)}"
+        return res.removeprefix('&')
+
+    def percentEncode(self, str):
+        res = ""
+        for c in str:
+            if c in shouldPercentEncode:
+                ascii = ord(c)
+                hexVal = hex(ascii)
+                res += '%' + hexVal.removeprefix("0x")
+            else:
+                res += c
+        return res 
+    
+    def connectToServer(self, url):
+        host = socket.gethostbyname(self.getHost(url))
+        port = self.getPort(url)
+        self.connect(host, port)
+        
+        log.write("GET/POST " + str(url) + "\n")
+        log.write("LOG: Obtained Host IP: " + host + " Port: " + str(port) + "\n")
+        
+    def getHost(self, url):
+        return urllib.parse.urlparse(url).netloc.split(':')[0]
+    
+    def getPort(self, url):
+        netloc = urllib.parse.urlparse(url).netloc.split(':')
+        if len(netloc) > 1:
+            port = int(netloc[1])
+        else:
+            # ASSUME HTTP/1.1 only; otherwise, it's outside of assignment spec
+            port = 80
+        return port
 
     def command(self, url, command="GET", args=None):
         if (command == "POST"):
@@ -83,6 +200,8 @@ class HTTPClient(object):
         else:
             return self.GET( url, args )
     
+
+
 if __name__ == "__main__":
     client = HTTPClient()
     command = "GET"
@@ -93,3 +212,35 @@ if __name__ == "__main__":
         print(client.command( sys.argv[2], sys.argv[1] ))
     else:
         print(client.command( sys.argv[1] ))
+    
+    log.close()
+
+
+
+# From my assignment 1; modified 
+class HTTPRequest:
+    url : urllib.parse.ParseResult
+    method : str
+    host : str 
+    port : int 
+    path : str
+    headers : dict
+    body : str
+
+    def __init__(self, method, url, headers = {}, body = ""):
+        self.url = urllib.parse.urlparse(url)
+        self.method = method
+        if self.url.path == "":
+            self.path = "/"
+        else:
+            self.path = self.url.path
+        self.headers = headers
+        self.body = body
+
+    def toPayload(self):
+        res = f"{self.method} {self.path} HTTP/1.1\r\n"
+        for header, value in self.headers.items():
+            res += f"{header}: {value}\r\n"
+        res += '\r\n'
+        res += self.body
+        return res
