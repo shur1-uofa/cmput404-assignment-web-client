@@ -23,10 +23,9 @@ import socket
 import re
 # you may use urllib to encode data appropriately
 import urllib.parse
-import time 
 
 # TODO: DEBUG REMOVE
-log = open('log.txt', 'w')
+# log = open('log.txt', 'w')
 
 shouldPercentEncode = [ ':', '/', '?', '#', '[', ']', '@', '!', '$', '&', "'", '(', ')', '*', '+', ',', ';', '=', '%', ' ']
 
@@ -80,7 +79,7 @@ class HTTPClient(object):
         done = False
         while not done:
             part = sock.recv(1024)
-            log.write("READING: " + str(part) + "\n")
+            #log.write("READING: " + str(part) + "\n")
             if (part):
                 buffer.extend(part)
             else:
@@ -99,9 +98,9 @@ class HTTPClient(object):
         })
         self.sendall(req.toPayload())
 
-        log.write("Sending\n")
-        log.write(req.toPayload())
-        log.write("=====\n\n")
+        #log.write("Sending\n")
+        #log.write(req.toPayload())
+        #log.write("=====\n\n")
 
         resp = self.getHTTPResponse()
         self.close()
@@ -111,7 +110,7 @@ class HTTPClient(object):
     def POST(self, url, args=None):
 
         self.connectToServer(url)
-        log.write("Args: " + str(args) + "\n")
+        #log.write("Args: " + str(args) + "\n")
 
         # Send Request
         req = HTTPRequest("POST", url, {
@@ -129,9 +128,9 @@ class HTTPClient(object):
 
         self.sendall(req.toPayload())
 
-        log.write("Sending\n")
-        log.write(req.toPayload())
-        log.write("=====\n\n")
+        #log.write("Sending\n")
+        #log.write(req.toPayload())
+        #log.write("=====\n\n")
 
         resp = self.getHTTPResponse()
         self.close()
@@ -146,12 +145,12 @@ class HTTPClient(object):
         code = self.get_code(data)
         body = self.get_body(data)
 
-        log.write("LOG: data\n" + data + "\n")
-        log.write("LOG: Obtained resp code " + str(code) + "\n")
-        log.write("LOG: Obtained resp body\n")
-        log.write(body)
-        log.write('\n')
-        log.write("\n----------------------------------\n\n")
+        #log.write("LOG: data\n" + data + "\n")
+        #log.write("LOG: Obtained resp code " + str(code) + "\n")
+        #log.write("LOG: Obtained resp body\n")
+        #log.write(body)
+        #log.write('\n')
+        #log.write("\n----------------------------------\n\n")
 
         return HTTPResponse(code, body)
     
@@ -179,8 +178,8 @@ class HTTPClient(object):
         port = self.getPort(url)
         self.connect(host, port)
         
-        log.write("GET/POST " + str(url) + "\n")
-        log.write("LOG: Obtained Host IP: " + host + " Port: " + str(port) + "\n")
+        #log.write("GET/POST " + str(url) + "\n")
+        #log.write("LOG: Obtained Host IP: " + host + " Port: " + str(port) + "\n")
         
     def getHost(self, url):
         return urllib.parse.urlparse(url).netloc.split(':')[0]
@@ -213,7 +212,7 @@ if __name__ == "__main__":
     else:
         print(client.command( sys.argv[1] ))
     
-    log.close()
+    #log.close()
 
 
 

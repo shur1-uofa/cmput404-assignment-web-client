@@ -1,3 +1,6 @@
+log.txt 
+mytests.py
+
 *.py[cod]
 
 # C extensions
